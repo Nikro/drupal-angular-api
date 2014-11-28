@@ -1,0 +1,7 @@
+name = AngularJS API
+description = Provides integration between AngularJS and Drupal.
+package = AngularJS
+core = 7.x
+configure = admin/config/development/angularjs_api
+
+dependencies[] = libraries
