@@ -273,32 +273,42 @@ function angular_api_check_version($version = 'all') {
  * Implements hook_page_build().
  */
 function angular_api_page_build(&$page) {
-  $angular_load_type = variable_get('angular_api_load_type', 'manual');
-  $used_version = variable_get('angular_api_version', 'none');
-  if ($used_version !== 'none') {
-    if ($angular_load_type !== 'manual') {
+  // Caching the values so we won't make 4 calls on every page-load,
+  // Anyway, when someone saves the admin form, we explicitly flush-cache.
+  $angular_api_values = cache_get('angular_api_values');
+  if (!$angular_api_values) {
+    $angular_api_values = array(
+      'angular_load_type' => variable_get('angular_api_load_type', 'manual'),
+      'used_version' => variable_get('angular_api_version', 'none'),
+      'angular_api_autoload_path' => variable_get('angular_api_autoload_path', ''),
+      'files_to_load' => variable_get('angular_api_autoload_files', array()),
+    );
+    cache_set('angular_api_values', (object) $angular_api_values);
+  }
+  $angular_api_values = isset($angular_api_values->data) ? $angular_api_values->data : (object) $angular_api_values;
 
+  if ($angular_api_values->used_version !== 'none') {
+    if ($angular_api_values->angular_load_type !== 'manual') {
       // By default, let's load all the stuff, only in case of path, check the paths.
       $to_load = TRUE;
-      if ($angular_load_type == 'path') {
-        $to_load = TRUE;
+      if ($angular_api_values->angular_load_type == 'path') {
+        $menu_item = menu_get_item();
+        $paths = list_extract_allowed_values($angular_api_values->angular_api_autoload_path, 'list_number', TRUE);
+        foreach ($paths as $key => $path) {
+          $match = drupal_match_path($menu_item['href'], $path);
+          $to_load = $match;
+        }
       }
-
+      // So, now let's finally load all the stuff.
       if ($to_load) {
-        $files_to_load = variable_get('angular_api_autoload_files', array());
         // Prepend the default library.
-        $files_to_load = array('angular' => 'angular') + $files_to_load;
+        $files_to_load = array('angular' => 'angular') + $angular_api_values->files_to_load;
         foreach ($files_to_load as $file => $should_load) {
           if ($should_load) {
-            if (($library = libraries_load($file . '.js')) && !empty($library['loaded'])) {
-              dsm($library);
-            }
+            $library = libraries_load($file . '.js');
           }
         }
       }
-    }
-    else {
-
     }
   }
 }
